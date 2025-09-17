@@ -43,3 +43,26 @@ def get_or_create_meeting(session: Session, meeting_date: date, notes: Optional[
     if not meeting:
         meeting = create_meeting(session, meeting_date, notes)
     return meeting
+
+
+def reset_meeting(session: Session, meeting_id: int) -> bool:
+    """
+    Reset a meeting by deleting all passes and attendance records for that meeting.
+    Returns True if any data was deleted, False otherwise.
+    """
+    from models.schema import Passes, Attendance
+
+    # Delete all passes for this meeting
+    passes_statement = select(Passes).where(Passes.meeting_id == meeting_id)
+    passes_to_delete = session.exec(passes_statement).all()
+    for pass_record in passes_to_delete:
+        session.delete(pass_record)
+
+    # Delete all attendance records for this meeting
+    attendance_statement = select(Attendance).where(Attendance.meeting_id == meeting_id)
+    attendance_to_delete = session.exec(attendance_statement).all()
+    for attendance_record in attendance_to_delete:
+        session.delete(attendance_record)
+
+    session.commit()
+    return len(passes_to_delete) > 0 or len(attendance_to_delete) > 0

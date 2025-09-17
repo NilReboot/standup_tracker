@@ -62,3 +62,25 @@ def get_recent_passes(session: Session, days: int = 30) -> List[Passes]:
         .order_by(Meetings.meeting_date, Passes.seq)
     )
     return session.exec(statement).all()
+
+
+def undo_last_pass(session: Session, meeting_id: int) -> bool:
+    """
+    Delete the last pass for a specific meeting (highest seq number).
+    Returns True if a pass was deleted, False if no passes exist.
+    """
+    # Get the pass with the highest sequence number for this meeting
+    statement = (
+        select(Passes)
+        .where(Passes.meeting_id == meeting_id)
+        .order_by(Passes.seq.desc())
+        .limit(1)
+    )
+    last_pass = session.exec(statement).first()
+
+    if last_pass:
+        session.delete(last_pass)
+        session.commit()
+        return True
+
+    return False

@@ -69,11 +69,15 @@ def build_transition_matrix(passes: List[Passes], alpha: float = 1.0, lambda_dec
 
 def predict_next_speakers(session: Session, meeting_date: date, current_speaker_id: int,
                          alpha: float = 1.0, lambda_decay: float = 0.95,
-                         min_history_days: int = 30, top_k: int = 3) -> List[Tuple[People, float]]:
+                         min_history_days: int = 30, top_k: int = 3,
+                         exclude_person_ids: Optional[List[int]] = None) -> List[Tuple[People, float]]:
     """
     Predict the top-k most likely next speakers using Markov model.
     Only considers people who are present and active on the meeting date.
+    Excludes people in exclude_person_ids (e.g., those who have already spoken today).
     """
+    if exclude_person_ids is None:
+        exclude_person_ids = []
     # Get attendees for this meeting who are active on the meeting date
     from services.people import get_active_people_on_date
     from services.attendance import get_attendees_for_meeting
@@ -87,17 +91,18 @@ def predict_next_speakers(session: Session, meeting_date: date, current_speaker_
     attendees = get_attendees_for_meeting(session, meeting.meeting_id)
     active_people = get_active_people_on_date(session, meeting_date)
 
-    # Find intersection - people who are both present and active
+    # Find intersection - people who are both present and active, excluding those who have already spoken
     active_attendee_ids = {p.person_id for p in active_people}.intersection({p.person_id for p in attendees})
+    active_attendee_ids = active_attendee_ids - set(exclude_person_ids)
 
-    if not active_attendee_ids or current_speaker_id not in active_attendee_ids:
+    if not active_attendee_ids or current_speaker_id not in (active_attendee_ids | set(exclude_person_ids)):
         return []
 
     # Get historical pass data for building the model
     passes = get_pass_history_for_prediction(session, min_history_days)
 
     if not passes:
-        # No historical data - return random prediction from active attendees
+        # No historical data - return random prediction from active attendees (excluding those who have spoken)
         other_attendees = [p for p in attendees if p.person_id != current_speaker_id and p.person_id in active_attendee_ids]
         equal_prob = 1.0 / len(other_attendees) if other_attendees else 0.0
         return [(person, equal_prob) for person in other_attendees[:top_k]]
@@ -107,18 +112,24 @@ def predict_next_speakers(session: Session, meeting_date: date, current_speaker_
 
     # Get predictions for current speaker
     if current_speaker_id not in transition_matrix:
-        # Current speaker has no history - return equal probabilities
+        # Current speaker has no history - return equal probabilities (excluding those who have spoken)
         other_attendees = [p for p in attendees if p.person_id != current_speaker_id and p.person_id in active_attendee_ids]
         equal_prob = 1.0 / len(other_attendees) if other_attendees else 0.0
         return [(person, equal_prob) for person in other_attendees[:top_k]]
 
-    # Filter predictions to only include active attendees (excluding current speaker)
+    # Filter predictions to only include active attendees (excluding current speaker and those who have spoken)
     predictions = []
     for person_id, prob in transition_matrix[current_speaker_id].items():
         if person_id in active_attendee_ids and person_id != current_speaker_id:
             person = session.get(People, person_id)
             if person:
                 predictions.append((person, prob))
+
+    # Renormalize probabilities since we've excluded some people
+    if predictions:
+        total_prob = sum(prob for _, prob in predictions)
+        if total_prob > 0:
+            predictions = [(person, prob / total_prob) for person, prob in predictions]
 
     # Sort by probability (descending) and return top-k
     predictions.sort(key=lambda x: x[1], reverse=True)
