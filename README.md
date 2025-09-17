@@ -222,6 +222,3 @@ This is a local application designed for individual teams. To customize:
 3. Extend the data model in `models/schema.py`
 4. Add new UI pages following the existing pattern
 
----
-
-**Built with ❤️ for agile teams everywhere!**
