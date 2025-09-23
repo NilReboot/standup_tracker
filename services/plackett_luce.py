@@ -1,12 +1,10 @@
 import numpy as np
-import pandas as pd
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator, ClassifierMixin
 import joblib
 from pathlib import Path
-import warnings
 
 
 class PlackettLuceModel(BaseEstimator, ClassifierMixin):

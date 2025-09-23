@@ -1,7 +1,6 @@
 from typing import List, Optional
 from sqlmodel import Session, select
-from models.schema import Turns, People
-from datetime import date
+from models.schema import Turns
 
 
 def create_turn(session: Session, meeting_id: int, seq: int, speaker_id: int, duration_sec: Optional[int] = None) -> Turns:

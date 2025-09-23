@@ -1,7 +1,6 @@
-from typing import List, Optional, Tuple
+from typing import List
 from sqlmodel import Session, select
-from models.schema import Passes, People, Meetings
-from datetime import date
+from models.schema import Passes, Meetings
 
 
 def create_pass(session: Session, meeting_id: int, from_person_id: int, to_person_id: int, seq: int) -> Passes:

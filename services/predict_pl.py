@@ -1,9 +1,7 @@
 from typing import List, Dict, Tuple, Optional
 from sqlmodel import Session, select
-from models.schema import Passes, People, Meetings, Attendance
+from models.schema import Passes, People, Meetings
 from datetime import date, timedelta
-import numpy as np
-from pathlib import Path
 
 from .features import build_feature_matrix, normalize_features
 from .plackett_luce import PlackettLuceModel, get_model_path

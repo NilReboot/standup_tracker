@@ -1,9 +1,7 @@
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 from sqlmodel import Session, select
-from models.schema import Passes, People, Meetings, Attendance
+from models.schema import Passes, People, Meetings
 from datetime import date, timedelta
-from collections import defaultdict
-import math
 
 
 def calculate_turns_since_spoke(session: Session, person_id: int, current_meeting_id: int,
