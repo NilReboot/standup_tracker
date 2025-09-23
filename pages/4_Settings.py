@@ -1,13 +1,15 @@
 import streamlit as st
 import json
 import os
+import pandas as pd
 from pathlib import Path
 from datetime import date
-from sqlmodel import Session
+from sqlmodel import Session, select
 from db.engine import engine, get_database_path
 from services.people import get_all_people
 from services.meetings import get_all_meetings
 from utils.cache import clear_all_cache
+from models.schema import Attendance, Passes, Turns
 
 
 st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
@@ -15,41 +17,83 @@ st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
 st.title("⚙️ Settings")
 
 # Prediction parameters
-st.header("🤖 Prediction Parameters")
+st.header("🤖 Plackett-Luce Model Parameters")
 
 st.markdown("""
-Adjust these parameters to fine-tune the AI predictions:
-- **Alpha (Smoothing)**: Higher values make predictions more uniform (1.0-5.0 recommended)
-- **Lambda (Decay)**: How much to weight recent vs. old data (0.8-0.99 recommended)
-- **Min History Days**: Minimum days of history to use for predictions
+Configure the Plackett-Luce model for speaker predictions:
+- **Regularization Strength**: Controls model complexity (0.1-10.0, higher = simpler model)
+- **Training History Days**: How many days of historical data to use for training
+- **Feature Scaling**: Whether to normalize features before training
+- **Max Iterations**: Maximum optimization iterations during training
 """)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    regularization_strength = st.slider("Regularization Strength", min_value=0.1, max_value=10.0, value=1.0, step=0.1)
+    min_history_days = st.slider("Training History Days", min_value=30, max_value=180, value=90, step=15)
+
+with col2:
+    feature_scaling = st.checkbox("Feature Scaling", value=True)
+    max_iterations = st.slider("Max Training Iterations", min_value=100, max_value=2000, value=1000, step=100)
+
+# Model management
+st.subheader("Model Management")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    alpha = st.slider("Alpha (Laplace Smoothing)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
+    if st.button("Save Model Settings"):
+        settings = {
+            "regularization_strength": regularization_strength,
+            "min_history_days": min_history_days,
+            "feature_scaling": feature_scaling,
+            "max_iterations": max_iterations,
+            "updated": date.today().isoformat()
+        }
+
+        # Save to a settings file
+        settings_path = Path("data") / "pl_model_settings.json"
+        settings_path.parent.mkdir(exist_ok=True)
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=2)
+
+        st.success("Model settings saved!")
 
 with col2:
-    lambda_decay = st.slider("Lambda (Exponential Decay)", min_value=0.5, max_value=0.99, value=0.95, step=0.01)
+    if st.button("Retrain Model Now", type="primary"):
+        from services.predict_pl import retrain_model
+
+        with st.spinner("Retraining model with new settings..."):
+            with Session(engine) as session:
+                retrain_info = retrain_model(session, min_history_days)
+
+        if retrain_info['retrain_success']:
+            st.success("Model retrained successfully!")
+
+            # Show feature importance if available
+            if 'feature_importance' in retrain_info:
+                st.write("**Feature Importance:**")
+                for feature, importance in retrain_info['feature_importance'].items():
+                    st.write(f"• {feature}: {importance:.3f}")
+        else:
+            st.error(f"Retraining failed: {retrain_info['retrain_message']}")
 
 with col3:
-    min_history_days = st.slider("Min History Days", min_value=7, max_value=90, value=30, step=7)
+    if st.button("Model Status", type="secondary"):
+        from services.predict_pl import get_model_training_info
 
-# Save prediction settings
-if st.button("Save Prediction Settings"):
-    settings = {
-        "alpha": alpha,
-        "lambda_decay": lambda_decay,
-        "min_history_days": min_history_days,
-        "updated": date.today().isoformat()
-    }
+        with Session(engine) as session:
+            model_info = get_model_training_info(session)
 
-    # Save to a settings file
-    settings_path = Path("data") / "settings.json"
-    with open(settings_path, "w") as f:
-        json.dump(settings, f, indent=2)
-
-    st.success("Prediction settings saved!")
+        if model_info['model_exists']:
+            st.success("✅ Model is trained and ready")
+            st.write(f"Training data points: {model_info['training_data_count']}")
+            if model_info['last_modified']:
+                st.write(f"Last updated: {model_info['last_modified']}")
+        else:
+            st.warning("⚠️ No trained model found")
+            st.write(f"Available training data: {model_info['training_data_count']} points")
 
 st.divider()
 
@@ -131,9 +175,6 @@ with Session(engine) as session:
     with col2:
         st.subheader("Meetings Export")
         if st.button("Export Meetings", key="export_meetings"):
-            import pandas as pd
-            from sqlmodel import select
-            from models.schema import Attendance
 
             meetings_data = []
             for meeting in meetings:
@@ -163,9 +204,6 @@ with Session(engine) as session:
     with col3:
         st.subheader("Full Export")
         if st.button("Export All Data", key="export_all"):
-            import pandas as pd
-            from sqlmodel import select
-            from models.schema import Attendance, Passes, Turns
 
             # Create comprehensive export
             export_data = {
@@ -293,8 +331,9 @@ A local Streamlit application for tracking daily "popcorn" standups with AI-powe
 
 **Features:**
 - Track attendance and speaking order
-- AI predictions using Markov chains
-- Historical analytics and insights
+- AI predictions using Plackett-Luce choice model
+- Feature-based ranking with 6 key behavioral factors
+- Historical analytics and model insights
 - Team member management with history
 - Data export capabilities
 

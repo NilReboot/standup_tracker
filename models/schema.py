@@ -4,6 +4,8 @@ from sqlmodel import SQLModel, Field, Relationship
 
 
 class People(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     person_id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(unique=True)
     active: bool = Field(default=True)
@@ -18,6 +20,8 @@ class People(SQLModel, table=True):
 
 
 class MembershipPeriods(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     period_id: Optional[int] = Field(default=None, primary_key=True)
     person_id: int = Field(foreign_key="people.person_id")
     start_date: date
@@ -27,6 +31,8 @@ class MembershipPeriods(SQLModel, table=True):
 
 
 class Meetings(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     meeting_id: Optional[int] = Field(default=None, primary_key=True)
     meeting_date: date = Field(unique=True)
     notes: Optional[str] = Field(default=None)
@@ -37,6 +43,8 @@ class Meetings(SQLModel, table=True):
 
 
 class Attendance(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     meeting_id: int = Field(foreign_key="meetings.meeting_id", primary_key=True)
     person_id: int = Field(foreign_key="people.person_id", primary_key=True)
     present: bool
@@ -46,6 +54,8 @@ class Attendance(SQLModel, table=True):
 
 
 class Turns(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     turn_id: Optional[int] = Field(default=None, primary_key=True)
     meeting_id: int = Field(foreign_key="meetings.meeting_id")
     seq: int = Field(ge=1)
@@ -57,6 +67,8 @@ class Turns(SQLModel, table=True):
 
 
 class Passes(SQLModel, table=True):
+    __table_args__ = {'extend_existing': True}
+
     pass_id: Optional[int] = Field(default=None, primary_key=True)
     meeting_id: int = Field(foreign_key="meetings.meeting_id")
     from_person_id: int = Field(foreign_key="people.person_id")

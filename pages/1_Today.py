@@ -6,7 +6,7 @@ from services.meetings import get_or_create_meeting, reset_meeting
 from services.people import get_active_people_on_date, get_person_by_id
 from services.attendance import get_attendees_for_meeting, bulk_mark_attendance
 from services.passes import create_pass, get_passes_for_meeting, get_next_pass_sequence, undo_last_pass
-from services.predict import predict_next_speakers
+from services.predict_pl import predict_next_speakers_pl
 
 
 st.set_page_config(page_title="Today's Standup", page_icon="📅", layout="wide")
@@ -131,11 +131,10 @@ with Session(engine) as session:
                 passes_for_predictions = get_passes_for_meeting(session, meeting.meeting_id)
                 people_who_spoke_ids = list(set(pass_record.from_person_id for pass_record in passes_for_predictions))
 
-                # Get predictions, excluding people who have already spoken
-                predictions = predict_next_speakers(
+                # Get predictions using Plackett-Luce model, excluding people who have already spoken
+                predictions = predict_next_speakers_pl(
                     session, today, current_speaker.person_id,
-                    alpha=1.0, lambda_decay=0.95, min_history_days=30, top_k=3,
-                    exclude_person_ids=people_who_spoke_ids
+                    top_k=3, exclude_person_ids=people_who_spoke_ids
                 )
 
                 if predictions:

@@ -19,7 +19,7 @@ def main():
 
     st.title("🎙️ Standup Tracker")
     st.markdown("""
-    Track daily "popcorn" standups and predict likely next speakers using AI.
+    Track daily "popcorn" standups and predict likely next speakers using Plackett-Luce choice modeling.
 
     **Features:**
     - 📅 **Today**: Record attendance and passes for today's standup

@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlmodel import Session, select
-from models.schema import Meetings
+from models.schema import Meetings, Passes, Attendance
 from datetime import date
 
 
@@ -50,7 +50,6 @@ def reset_meeting(session: Session, meeting_id: int) -> bool:
     Reset a meeting by deleting all passes and attendance records for that meeting.
     Returns True if any data was deleted, False otherwise.
     """
-    from models.schema import Passes, Attendance
 
     # Delete all passes for this meeting
     passes_statement = select(Passes).where(Passes.meeting_id == meeting_id)

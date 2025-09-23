@@ -56,7 +56,9 @@ A local Streamlit web app to track daily "popcorn" standups (≈20 people, one s
 │   ├── turns.py                 # CRUD for speaking turns
 │   ├── passes.py                # CRUD for pass tracking
 │   ├── people.py                # CRUD for people & membership periods
-│   └── predict.py               # AI prediction using Markov chains
+│   ├── predict_pl.py            # AI prediction using Plackett-Luce model
+│   ├── features.py              # Feature engineering for ML model
+│   └── plackett_luce.py         # Plackett-Luce model implementation
 ├── pages/
 │   ├── 1_Today.py               # Daily standup capture
 │   ├── 2_People.py              # Team roster management
@@ -124,11 +126,14 @@ A local Streamlit web app to track daily "popcorn" standups (≈20 people, one s
 - If they return later: insert a new MembershipPeriod row with a new `start_date`, leave old periods intact, set People.active=True.
 - Do **not** delete people; history in Attendance/Passes/Turns must remain valid.
 
-## Prediction approach (services/predict.py)
-- Same as before: first-order Markov model with Laplace smoothing and optional exponential recency decay.
-- Candidate set for predictions must include only people:
-  - Who are present at today’s meeting (`Attendance.present=True`)
-  - AND whose membership_period covers today’s date (`start_date <= meeting_date <= end_date OR end_date IS NULL`).
+## Prediction approach (services/predict_pl.py)
+- Uses Plackett-Luce model with feature engineering for more sophisticated predictions
+- Features include: days since last picked, team relationships, attendance patterns, speaking history
+- Trained on historical pass data with model persistence and automatic retraining
+- Candidate set for predictions includes only people:
+  - Who are present at today's meeting (`Attendance.present=True`)
+  - AND whose membership_period covers today's date (`start_date <= meeting_date <= end_date OR end_date IS NULL`)
+  - AND who haven't already spoken in the current meeting
 
 ## Streamlit UX
 ### People page
@@ -195,10 +200,11 @@ find . -name "__pycache__" -type d -exec rm -rf {} +
 4. **Configure Settings**: Adjust AI prediction parameters in the "Settings" page
 
 ### AI Predictions
-The app uses a first-order Markov chain model with:
-- **Laplace Smoothing** (α): Prevents zero probabilities for rare transitions
-- **Exponential Decay** (λ): Weights recent meetings more heavily than older ones
+The app uses a Plackett-Luce choice model with:
+- **Feature Engineering**: Multi-dimensional features including temporal, social, and behavioral patterns
+- **Model Training**: Learns from historical pass data with automatic retraining capabilities
 - **Membership Awareness**: Only predicts active team members present at the meeting
+- **Context Awareness**: Considers who has already spoken in the current meeting
 
 ### Data Management
 - **Historical Accuracy**: Team member deactivations preserve all historical data
@@ -217,8 +223,9 @@ The app uses a first-order Markov chain model with:
 ## 🤝 Contributing
 
 This is a local application designed for individual teams. To customize:
-1. Modify prediction algorithms in `services/predict.py`
-2. Add new analytics in `pages/3_Analytics.py`
-3. Extend the data model in `models/schema.py`
-4. Add new UI pages following the existing pattern
+1. Modify prediction algorithms in `services/predict_pl.py` or `services/plackett_luce.py`
+2. Add new features in `services/features.py`
+3. Add new analytics in `pages/3_Analytics.py`
+4. Extend the data model in `models/schema.py`
+5. Add new UI pages following the existing pattern
 
