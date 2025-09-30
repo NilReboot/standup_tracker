@@ -15,18 +15,39 @@ st.title("📅 Today's Standup")
 
 # Get today's date
 today = date.today()
-st.subheader(f"Meeting Date: {today.strftime('%A, %B %d, %Y')}")
+
+# Initialize selected date in session state (defaults to today)
+if 'selected_date' not in st.session_state:
+    st.session_state.selected_date = today
+
+st.subheader(f"Meeting Date: {st.session_state.selected_date.strftime('%A, %B %d, %Y')}")
+
+col1, col2 = st.columns([1, 1])
+with col1:
+    # Date picker in expandable section
+    with st.expander("📅 Change Date", expanded=False):
+        selected_date = st.date_input(
+            "Select a different date:",
+            value=st.session_state.selected_date,
+            key="date_picker"
+        )
+
+        if selected_date != st.session_state.selected_date:
+            st.session_state.selected_date = selected_date
+            st.rerun()
+with col2:
+    st.write("")  # Spacer
 
 with Session(engine) as session:
-    # Get or create today's meeting
-    meeting = get_or_create_meeting(session, today)
+    # Get or create meeting for selected date
+    meeting = get_or_create_meeting(session, st.session_state.selected_date)
 
-    # Get active people for today
-    active_people = get_active_people_on_date(session, today)
+    # Get active people for selected date
+    active_people = get_active_people_on_date(session, st.session_state.selected_date)
     current_attendees = get_attendees_for_meeting(session, meeting.meeting_id)
 
     if not active_people:
-        st.warning("No active team members found for today. Please add people in the People page first.")
+        st.warning(f"No active team members found for {st.session_state.selected_date.strftime('%B %d, %Y')}. Please add people in the People page first.")
         st.stop()
 
     # Attendance section
@@ -57,7 +78,7 @@ with Session(engine) as session:
             st.rerun()
 
     with col2:
-        st.subheader("Present Today")
+        st.subheader("Present")
         present_count = sum(1 for present in attendance_data.values() if present)
         st.metric("Attendees", f"{present_count} / {len(active_people)}")
 
@@ -133,7 +154,7 @@ with Session(engine) as session:
 
                 # Get predictions using Plackett-Luce model, excluding people who have already spoken
                 predictions = predict_next_speakers_pl(
-                    session, today, current_speaker.person_id,
+                    session, st.session_state.selected_date, current_speaker.person_id,
                     top_k=3, exclude_person_ids=people_who_spoke_ids
                 )
 
@@ -152,25 +173,25 @@ with Session(engine) as session:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-    # Today's passes
-        st.header("📋 Today's Passes")
+    # Meeting passes
+        st.header("📋 Meeting Passes")
         passes = get_passes_for_meeting(session, meeting.meeting_id)
 
         if passes:
-            st.write(f"**{len(passes)} passes recorded today:**")
+            st.write(f"**{len(passes)} passes recorded:**")
             for idx, pass_record in enumerate(passes, 1):
                 from_person = get_person_by_id(session, pass_record.from_person_id)
                 to_person = get_person_by_id(session, pass_record.to_person_id)
                 st.write(f"{idx}. {from_person.name} → {to_person.name}")
         else:
-            st.info("No passes recorded yet for today.")
+            st.info("No passes recorded yet for this meeting.")
     
     with col2:
         st.header("Reset Meeting Data")
-        st.write("If you need to reset today's meeting data (attendance and passes), you can do so below.")
-        if st.button("Reset Today's Meeting", type="secondary"):
+        st.write("If you need to reset this meeting's data (attendance and passes), you can do so below.")
+        if st.button("Reset Meeting", type="secondary"):
             reset_meeting(session, meeting.meeting_id)
-            st.success("Today's meeting data has been reset.")
+            st.success("Meeting data has been reset.")
             st.rerun()
         if st.button("Undo Last Pass", type="secondary"):
             undone = undo_last_pass(session, meeting.meeting_id)
@@ -183,7 +204,7 @@ with Session(engine) as session:
     # Meeting notes
     st.header("📝 Meeting Notes")
     notes = st.text_area(
-        "Optional notes for today's standup:",
+        "Optional notes for this meeting:",
         value=meeting.notes or "",
         height=100,
         key="meeting_notes"

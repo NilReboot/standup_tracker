@@ -2,6 +2,8 @@ from sqlmodel import SQLModel, create_engine, Session
 from pathlib import Path
 from sqlalchemy import event
 
+import models.schema  # noqa: F401
+
 
 def get_database_path() -> str:
     data_dir = Path("data")
